@@ -4,6 +4,7 @@ from pwdlib import PasswordHash
 from pydantic import BaseModel
 from sqlalchemy import select, update, delete
 from typing import Annotated
+from src.security import security
 
 from src.api.endpoints.dependencies import get_current_user
 from src.api.schemas.notes import NotesPostSchema
@@ -13,10 +14,6 @@ from src.database.user import User
 from src.database.note import Note
 
 router = APIRouter()
-config = AuthXConfig()
-config.JWT_SECRET_KEY = "SECRET_KEY"
-config.JWT_TOKEN_LOCATION = ["headers"]
-security: AuthX = AuthX(config=config)
 
 password_hash = PasswordHash.recommended()
 
@@ -105,6 +102,8 @@ def update_note(creds: NotesPostSchema,
             "success": True,
             "updated_rows": result.rowcount,
         }
+
+
 @router.delete("/notes/{note_id}")
 def delete_note(
         current_user: Annotated[User, Depends(get_current_user)],
@@ -126,6 +125,8 @@ def delete_note(
             "success": True,
             "updated_rows": result.rowcount,
         }
+
+
 @router.get("/protected")
 def protected(
         payload: Annotated[TokenPayload, Depends(security.access_token_required)]
