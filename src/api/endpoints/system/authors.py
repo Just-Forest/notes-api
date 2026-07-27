@@ -15,7 +15,6 @@ from src.database.note import Note
 router = APIRouter()
 config = AuthXConfig()
 config.JWT_SECRET_KEY = "SECRET_KEY"
-config.JWT_ACCESS_COOKIE_NAME = "my_access_token"
 config.JWT_TOKEN_LOCATION = ["headers"]
 security: AuthX = AuthX(config=config)
 
@@ -28,7 +27,7 @@ def login(creds: UserLoginSchema):
     with session_factory() as session:
         user = session.execute(stmt).scalars().first()
         if user is None:
-            raise HTTPException(status_code=401, detail="User doesnt exist")
+            raise HTTPException(status_code=401, detail="Incorrect name or password")
         if password_hash.verify(creds.password, user.password):
             access_token = security.create_access_token(uid=str(user.id))
             refresh_token = security.create_refresh_token(uid=str(user.id))
@@ -96,6 +95,11 @@ def update_note(creds: NotesPostSchema,
             .values(title=creds.title)
         )
         result = session.execute(stmt)
+        if result.rowcount == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="Note not found",
+            )
         session.commit()
         return {
             "success": True,
