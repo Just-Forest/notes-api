@@ -1,0 +1,12 @@
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+engine = create_engine("sqlite:///authors.db")
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+session_factory = sessionmaker(engine)
+
