@@ -1,6 +1,7 @@
 import os
-from dotenv import load_dotenv
+
 from authx import AuthX, AuthXConfig
+from dotenv import load_dotenv
 
 load_dotenv()
 

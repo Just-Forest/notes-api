@@ -1,17 +1,17 @@
-from authx import AuthX, AuthXConfig, TokenPayload
+from typing import Annotated
+
+from authx import TokenPayload
 from fastapi import HTTPException, Depends, APIRouter
 from pwdlib import PasswordHash
-from pydantic import BaseModel
 from sqlalchemy import select, update, delete
-from typing import Annotated
-from src.security import security
 
 from src.api.endpoints.dependencies import get_current_user
 from src.api.schemas.notes import NotesPostSchema
 from src.api.schemas.users import UserLoginSchema
 from src.database import session_factory
-from src.database.user import User
 from src.database.note import Note
+from src.database.user import User
+from src.security import security
 
 router = APIRouter()
 
@@ -61,6 +61,7 @@ def get_all_notes(
                 {
                     "id": note.id,
                     "title": note.title,
+                    "content": note.content
                 }
                 for note in notes
             ]
@@ -73,6 +74,7 @@ def add_note(creds: NotesPostSchema,
              ):
     with session_factory() as session:
         note = Note(title=creds.title,
+                    content=creds.content,
                     user_id=current_user.id
                     )
         session.add(note)
@@ -89,7 +91,7 @@ def update_note(creds: NotesPostSchema,
         stmt = (
             update(Note)
             .where(Note.id == note_id, Note.user_id == current_user.id)
-            .values(title=creds.title)
+            .values(title=creds.title, content=creds.content)
         )
         result = session.execute(stmt)
         if result.rowcount == 0:

@@ -1,7 +1,9 @@
-from pydantic import BaseModel, field_validator, ValidationError
+from pydantic import field_validator
+
+from src import BaseSchema
 
 
-class UserLoginSchema(BaseModel):
+class UserLoginSchema(BaseSchema):
     name: str
     password: str
     @field_validator("password", mode='after')
@@ -14,5 +16,3 @@ class UserLoginSchema(BaseModel):
         if value.isdigit():
             raise ValueError("Password must include at least one letter")
         return value
-class BookScheme(BaseModel):
-    title: str

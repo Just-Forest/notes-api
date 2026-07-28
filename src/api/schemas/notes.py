@@ -1,5 +1,8 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src import BaseSchema
 
 
-class NotesPostSchema(BaseModel):
-    title: str = Field(min_length=1, max_length=2000)
+class NotesPostSchema(BaseSchema):
+    title: str = Field(min_length=1, max_length=100)
+    content: str = Field(min_length=1)

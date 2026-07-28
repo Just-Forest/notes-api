@@ -4,9 +4,9 @@ from authx import TokenPayload
 from fastapi import Depends, HTTPException
 from sqlalchemy import select
 
-from src.security import security
 from src.database import session_factory
 from src.database.user import User
+from src.security import security
 
 
 def get_current_user(
