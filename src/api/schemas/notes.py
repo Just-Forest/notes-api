@@ -8,11 +8,14 @@ class NotesPostSchema(BaseSchema):
     content: str = Field(min_length=1)
 
 
-class GetAllNotes(BaseSchema):
-    model_config = ConfigDict(populate_by_name=True)
+class NoteItem(BaseSchema):
     id: int
     title: str
     content: str
+
+
+class GetAllNotes(BaseSchema):
+    all_notes: list[NoteItem]
 
 
 class UpdatedNotes(BaseSchema):

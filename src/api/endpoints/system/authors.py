@@ -6,7 +6,7 @@ from pwdlib import PasswordHash
 from sqlalchemy import select, update, delete
 
 from src.api.endpoints.dependencies import get_current_user
-from src.api.schemas.notes import NotesPostSchema, GetAllNotes, UpdatedNotes
+from src.api.schemas.notes import GetAllNotes, UpdatedNotes, NotesPostSchema, NoteItem
 from src.api.schemas.users import UserLoginSchema, LoginResponse
 from src.database import session_factory
 from src.database.note import Note
@@ -68,7 +68,7 @@ def get_all_notes(
         }
 
 
-@router.post("/notes")
+@router.post("/notes", response_model=NoteItem)
 def add_note(creds: NotesPostSchema,
              current_user: Annotated[User, Depends(get_current_user)]
              ):
@@ -79,7 +79,8 @@ def add_note(creds: NotesPostSchema,
                     )
         session.add(note)
         session.commit()
-    return {"success": True}
+        session.refresh(note)
+        return note
 
 
 @router.put("/notes/{note_id}", response_model=UpdatedNotes)
