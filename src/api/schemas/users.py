@@ -1,4 +1,4 @@
-from pydantic import field_validator
+from pydantic import field_validator, ConfigDict, Field
 
 from src import BaseSchema
 
@@ -16,3 +16,8 @@ class UserLoginSchema(BaseSchema):
         if value.isdigit():
             raise ValueError("Password must include at least one letter")
         return value
+
+class LoginResponse(BaseSchema):
+    model_config = ConfigDict(populate_by_name=True)
+    access_token: str = Field(alias="accessToken")
+    refresh_token: str = Field(alias="refreshToken")

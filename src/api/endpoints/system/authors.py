@@ -6,8 +6,8 @@ from pwdlib import PasswordHash
 from sqlalchemy import select, update, delete
 
 from src.api.endpoints.dependencies import get_current_user
-from src.api.schemas.notes import NotesPostSchema
-from src.api.schemas.users import UserLoginSchema
+from src.api.schemas.notes import NotesPostSchema, GetAllNotes, UpdatedNotes
+from src.api.schemas.users import UserLoginSchema, LoginResponse
 from src.database import session_factory
 from src.database.note import Note
 from src.database.user import User
@@ -18,7 +18,7 @@ router = APIRouter()
 password_hash = PasswordHash.recommended()
 
 
-@router.post("/login")
+@router.post("/login", response_model=LoginResponse)
 def login(creds: UserLoginSchema):
     stmt = select(User).where(User.name == creds.name)
     with session_factory() as session:
@@ -49,7 +49,7 @@ def signup(creds: UserLoginSchema):
     return {"success": True}
 
 
-@router.get("/notes")
+@router.get("/notes", response_model=GetAllNotes)
 def get_all_notes(
         current_user: Annotated[User, Depends(get_current_user)]
 ):
@@ -82,7 +82,7 @@ def add_note(creds: NotesPostSchema,
     return {"success": True}
 
 
-@router.put("/notes/{note_id}")
+@router.put("/notes/{note_id}", response_model=UpdatedNotes)
 def update_note(creds: NotesPostSchema,
                 current_user: Annotated[User, Depends(get_current_user)],
                 note_id: int
@@ -106,7 +106,7 @@ def update_note(creds: NotesPostSchema,
         }
 
 
-@router.delete("/notes/{note_id}")
+@router.delete("/notes/{note_id}", response_model=UpdatedNotes)
 def delete_note(
         current_user: Annotated[User, Depends(get_current_user)],
         note_id: int
