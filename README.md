@@ -62,7 +62,7 @@ Response:
 
 Create a `.env` file in the project root:
 
-SECRET_KEY=your-secret-key
+JWT_SECRET_KEY=your-secret-key
 DATABASE_URL=sqlite:///./notes.db
 
 ## Running the project
