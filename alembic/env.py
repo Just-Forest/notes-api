@@ -1,16 +1,18 @@
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
-from alembic import context
-from src.database import Base
-from src.database.user import User
-from src.database.note import Note
+from src.config import settings
+from src.database.session import Base
+from src.database.user import User  # noqa: F401 - registers the table on Base.metadata
+from src.database.note import Note  # noqa: F401 - registers the table on Base.metadata
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
