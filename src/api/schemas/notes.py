@@ -1,6 +1,6 @@
-from pydantic import Field, ConfigDict
+from pydantic import Field
 
-from src import BaseSchema
+from src.api.schemas.base import BaseSchema
 
 
 class NotesPostSchema(BaseSchema):

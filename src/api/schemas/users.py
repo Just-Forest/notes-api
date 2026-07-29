@@ -1,6 +1,6 @@
 from pydantic import field_validator, ConfigDict, Field
 
-from src import BaseSchema
+from src.api.schemas.base import BaseSchema
 
 
 class UserLoginSchema(BaseSchema):
