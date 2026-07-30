@@ -30,3 +30,9 @@ def setup_db():
 @pytest.fixture
 def client():
     return TestClient(app)
+
+
+@pytest.fixture
+def session():
+    with TestingSessionLocal() as session:
+        yield session

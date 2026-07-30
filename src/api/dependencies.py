@@ -8,11 +8,13 @@ from sqlalchemy.orm import Session
 from src.database.session import get_session
 from src.database.user import User
 from src.security import security
+from src.services.auth import AuthService
+from src.services.notes import NoteService
 
 
 def get_current_user(
     payload: Annotated[TokenPayload, Depends(security.access_token_required)],
-    session: Annotated[Session, Depends(get_session)]
+    session: Annotated[Session, Depends(get_session)],
 ):
     user_id = int(payload.sub)
     stmt = select(User).where(User.id == user_id)
@@ -23,3 +25,13 @@ def get_current_user(
             detail="User not found",
         )
     return user
+
+
+def get_note_service(
+    session: Annotated[Session, Depends(get_session)],
+):
+    return NoteService(session)
+
+
+def get_auth_service(session: Annotated[Session, Depends(get_session)]):
+    return AuthService(session)
