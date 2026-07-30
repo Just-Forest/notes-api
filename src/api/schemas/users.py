@@ -6,7 +6,8 @@ from src.api.schemas.base import BaseSchema
 class UserLoginSchema(BaseSchema):
     name: str
     password: str
-    @field_validator("password", mode='after')
+
+    @field_validator("password", mode="after")
     @classmethod
     def validate_password(cls, value: str):
         if value.isalpha():
@@ -15,7 +16,10 @@ class UserLoginSchema(BaseSchema):
             raise ValueError("Password must be >= 8")
         if value.isdigit():
             raise ValueError("Password must include at least one letter")
+        if value.islower():
+            raise ValueError("Password must have 1 upper letter")
         return value
+
 
 class LoginResponse(BaseSchema):
     model_config = ConfigDict(populate_by_name=True)
