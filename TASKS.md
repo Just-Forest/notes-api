@@ -182,13 +182,13 @@ exactly — `/login`, `/signup`, `/notes`, `/notes/{note_id}`, `/health`.
 
 ---
 
-## 6. Extract a service layer ☐
+## 6. Extract a service layer  ✅
 
 **Problem:** each endpoint does HTTP concerns (status codes, `HTTPException`), business rules,
 and persistence in one function. You can't test "duplicate names are rejected" without an HTTP
 client and a database.
 
-**Do:**
+**Done:**
 ```
 router      → HTTP only: parse, call service, shape response
 service     → business rules, knows nothing about HTTP
