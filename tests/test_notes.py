@@ -38,3 +38,31 @@ def test_cannot_delete_others_note(client):
 
     response = client.delete(f"/notes/{note_id}", headers=headers_b)
     assert response.status_code == 404
+
+
+def test_update_own_note(client):
+    headers = get_auth_header(client)
+    note_id = client.post(
+        "/notes", json={"title": "Before", "content": "old"}, headers=headers
+    ).json()["id"]
+
+    response = client.put(
+        f"/notes/{note_id}", json={"title": "After", "content": "new"}, headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["updatedRows"] == 1
+
+    notes = client.get("/notes", headers=headers).json()["allNotes"]
+    assert notes[0]["title"] == "After"
+
+
+def test_delete_own_note(client):
+    headers = get_auth_header(client)
+    note_id = client.post(
+        "/notes", json={"title": "Doomed", "content": "bye"}, headers=headers
+    ).json()["id"]
+
+    response = client.delete(f"/notes/{note_id}", headers=headers)
+    assert response.status_code == 200
+
+    assert client.get("/notes", headers=headers).json()["allNotes"] == []
