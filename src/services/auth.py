@@ -38,3 +38,10 @@ class AuthService:
             self.session.rollback()
             raise AlreadyExists("User with this name already exists")
         return {"success": True}
+
+    def refresh(self, user_id: int) -> dict[str, str]:
+        stmt = select(User).where(User.id == user_id)
+        user = self.session.execute(stmt).scalars().first()
+        if user is None:
+            raise InvalidCredentials("User no longer exists")
+        return {"access_token": security.create_access_token(uid=str(user.id))}

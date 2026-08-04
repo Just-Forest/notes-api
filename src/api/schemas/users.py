@@ -25,3 +25,7 @@ class LoginResponse(BaseSchema):
     model_config = ConfigDict(populate_by_name=True)
     access_token: str = Field(alias="accessToken")
     refresh_token: str = Field(alias="refreshToken")
+
+
+class RefreshResponse(BaseSchema):
+    access_token: str

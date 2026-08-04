@@ -62,3 +62,43 @@ def test_password_digit(client):
     )
     assert response.status_code == 422
     assert "must include at least one letter" in response.text
+
+
+def get_tokens(client, name="tokenuser", password=VALID_PASSWORD):
+    client.post("/signup", json={"name": name, "password": password})
+    return client.post("/login", json={"name": name, "password": password}).json()
+
+
+def test_refresh_returns_usable_access_token(client):
+    tokens = get_tokens(client)
+
+    response = client.post(
+        "/refresh", headers={"Authorization": f"Bearer {tokens['refreshToken']}"}
+    )
+    assert response.status_code == 200
+    assert "accessToken" in response.json()
+    assert "refreshToken" not in response.json()
+
+    new_access = response.json()["accessToken"]
+    notes = client.get("/notes", headers={"Authorization": f"Bearer {new_access}"})
+    assert notes.status_code == 200
+
+
+def test_access_token_rejected_by_refresh(client):
+    tokens = get_tokens(client)
+    response = client.post(
+        "/refresh", headers={"Authorization": f"Bearer {tokens['accessToken']}"}
+    )
+    assert response.status_code == 401
+
+
+def test_refresh_token_rejected_by_notes(client):
+    tokens = get_tokens(client)
+    response = client.get(
+        "/notes", headers={"Authorization": f"Bearer {tokens['refreshToken']}"}
+    )
+    assert response.status_code == 401
+
+
+def test_refresh_without_token(client):
+    assert client.post("/refresh").status_code == 401

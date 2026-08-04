@@ -1,9 +1,10 @@
 from typing import Annotated
 
+from authx import TokenPayload
 from fastapi import Depends, APIRouter
 
-
-from src.api.schemas.users import LoginResponse, UserLoginSchema
+from src.security import security
+from src.api.schemas.users import LoginResponse, UserLoginSchema, RefreshResponse
 from src.api.dependencies import get_auth_service
 from src.services.auth import AuthService
 
@@ -23,3 +24,11 @@ def signup(
     creds: UserLoginSchema, service: Annotated[AuthService, Depends(get_auth_service)]
 ):
     return service.signup(creds.name, creds.password)
+
+
+@router.post("/refresh", response_model=RefreshResponse)
+def refresh(
+    payload: Annotated[TokenPayload, Depends(security.refresh_token_required)],
+    service: Annotated[AuthService, Depends(get_auth_service)],
+):
+    return service.refresh(int(payload.sub))

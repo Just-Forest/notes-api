@@ -21,9 +21,7 @@ def handle_already_exists(request, exc):
 
 @app.exception_handler(InvalidCredentials)
 def handle_invalid_credentials(request, exc):
-    return JSONResponse(
-        status_code=401, content={"detail": "Incorrect name or password"}
-    )
+    return JSONResponse(status_code=401, content={"detail": str(exc)})
 
 
 if __name__ == "__main__":
