@@ -16,8 +16,3 @@ class NoteItem(BaseSchema):
 
 class GetAllNotes(BaseSchema):
     all_notes: list[NoteItem]
-
-
-class UpdatedNotes(BaseSchema):
-    success: bool
-    updated_rows: int

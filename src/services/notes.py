@@ -22,22 +22,21 @@ class NoteService:
         self.session.refresh(note)
         return note
 
-    def update(self, note_id: int, user_id: int, title: str, content: str) -> int:
+    def update(self, note_id: int, user_id: int, title: str, content: str) -> Note:
         stmt = (
             update(Note)
             .where(Note.id == note_id, Note.user_id == user_id)
             .values(title=title, content=content)
+            .returning(Note)
         )
-        rowcount = self.session.execute(stmt).rowcount
-        if rowcount == 0:
+        note = self.session.execute(stmt).scalars().first()
+        if note is None:
             raise NotFound("Note not found")
         self.session.commit()
-        return rowcount
+        return note
 
-    def delete(self, note_id: int, user_id: int) -> int:
+    def delete(self, note_id: int, user_id: int) -> None:
         stmt = delete(Note).where(Note.id == note_id, Note.user_id == user_id)
-        rowcount = self.session.execute(stmt).rowcount
-        if rowcount == 0:
+        if self.session.execute(stmt).rowcount == 0:
             raise NotFound("Note not found")
         self.session.commit()
-        return rowcount

@@ -50,7 +50,9 @@ def test_update_own_note(client):
         f"/notes/{note_id}", json={"title": "After", "content": "new"}, headers=headers
     )
     assert response.status_code == 200
-    assert response.json()["updatedRows"] == 1
+    assert response.json()["title"] == "After"
+    assert response.json()["content"] == "new"
+    assert response.json()["id"] == note_id
 
     notes = client.get("/notes", headers=headers).json()["allNotes"]
     assert notes[0]["title"] == "After"
@@ -63,6 +65,7 @@ def test_delete_own_note(client):
     ).json()["id"]
 
     response = client.delete(f"/notes/{note_id}", headers=headers)
-    assert response.status_code == 200
+    assert response.status_code == 204
+    assert response.content == b""
 
     assert client.get("/notes", headers=headers).json()["allNotes"] == []
