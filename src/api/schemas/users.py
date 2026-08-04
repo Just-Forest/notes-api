@@ -1,4 +1,4 @@
-from pydantic import field_validator, ConfigDict, Field
+from pydantic import field_validator
 
 from src.api.schemas.base import BaseSchema
 
@@ -21,10 +21,9 @@ class UserLoginSchema(BaseSchema):
         return value
 
 
-class LoginResponse(BaseSchema):
-    model_config = ConfigDict(populate_by_name=True)
-    access_token: str = Field(alias="accessToken")
-    refresh_token: str = Field(alias="refreshToken")
+class TokenPair(BaseSchema):
+    access_token: str
+    refresh_token: str
 
 
 class RefreshResponse(BaseSchema):

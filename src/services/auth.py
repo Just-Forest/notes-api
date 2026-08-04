@@ -14,17 +14,20 @@ class AuthService:
     def __init__(self, session: Session):
         self.session = session
 
-    def login(self, name: str, password: str) -> dict[str, str]:
-        stmt = select(User).where(User.name == name)
-        user = self.session.execute(stmt).scalars().first()
-        if user is None or not password_hash.verify(password, user.password):
-            raise InvalidCredentials("Incorrect name or password")
+    def _issue_tokens(self, user: User) -> dict[str, str]:
         return {
             "access_token": security.create_access_token(uid=str(user.id)),
             "refresh_token": security.create_refresh_token(uid=str(user.id)),
         }
 
-    def signup(self, name, password):
+    def login(self, name: str, password: str) -> dict[str, str]:
+        stmt = select(User).where(User.name == name)
+        user = self.session.execute(stmt).scalars().first()
+        if user is None or not password_hash.verify(password, user.password):
+            raise InvalidCredentials("Incorrect name or password")
+        return self._issue_tokens(user)
+
+    def signup(self, name: str, password: str) -> dict[str, str]:
         stmt = select(User).where(User.name == name)
         user = self.session.execute(stmt).scalars().first()
         if user is not None:
@@ -37,7 +40,7 @@ class AuthService:
         except IntegrityError:
             self.session.rollback()
             raise AlreadyExists("User with this name already exists")
-        return {"success": True}
+        return self._issue_tokens(user)
 
     def refresh(self, user_id: int) -> dict[str, str]:
         stmt = select(User).where(User.id == user_id)

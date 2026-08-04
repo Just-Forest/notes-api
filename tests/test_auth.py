@@ -5,8 +5,9 @@ def test_signup(client):
     response = client.post(
         "/signup", json={"name": "testuser", "password": VALID_PASSWORD}
     )
-    assert response.status_code == 200
-    assert response.json()["success"] is True
+    assert response.status_code == 201
+    assert "accessToken" in response.json()
+    assert "refreshToken" in response.json()
 
 
 def test_signup_duplicate_user(client):
