@@ -26,21 +26,26 @@ A simple REST API for managing personal notes, built with FastAPI. Created to pr
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/signup` | Register a new user |
-| POST | `/login` | Login and receive JWT token |
-| GET | `/notes` | Get all user's notes |
-| POST | `/notes` | Create a new note |
-| PUT | `/notes/{note_id}` | Update a note |
-| DELETE | `/notes/{note_id}` | Delete a note |
+| Method | Endpoint | Description | Success |
+|--------|----------|-------------|---------|
+| POST | `/signup` | Register a new user | `200` |
+| POST | `/login` | Log in and receive an access + refresh token pair | `200` |
+| POST | `/refresh` | Exchange a refresh token for a new access token | `200` |
+| GET | `/notes` | Get all of the authenticated user's notes | `200` |
+| POST | `/notes` | Create a note | `200` |
+| PUT | `/notes/{note_id}` | Update a note, returns the updated note | `200` |
+| DELETE | `/notes/{note_id}` | Delete a note, empty body | `204` |
+| GET | `/health` | Liveness check | `200` |
 
-### Example: Create a note
+Responses are camelCase. All `/notes` endpoints require `Authorization: Bearer <access_token>`
+and only ever see notes belonging to the token's owner.
+
+### Example: create a note
 
 Request:
 ```json
 POST /notes
-Authorization: Bearer <your_jwt_token>
+Authorization: Bearer <access_token>
 
 {
   "title": "Shopping list",
@@ -53,10 +58,34 @@ Response:
 {
   "id": 1,
   "title": "Shopping list",
-  "content": "Milk, eggs, bread",
-  "owner_id": 3
+  "content": "Milk, eggs, bread"
 }
 ```
+
+### Tokens
+
+`/login` returns two tokens:
+
+```json
+{
+  "accessToken": "<15 minutes>",
+  "refreshToken": "<20 days>"
+}
+```
+
+Send the **access** token to every endpoint. When it expires, `POST /refresh` with the
+**refresh** token in the `Authorization` header to get a new access token — no password needed:
+
+```json
+POST /refresh
+Authorization: Bearer <refresh_token>
+
+{ "accessToken": "<new, 15 minutes>" }
+```
+
+The two are not interchangeable: an access token sent to `/refresh` is rejected, and a refresh
+token sent to `/notes` is rejected. There is currently no logout — a JWT can't be revoked, so
+the short access-token lifetime is what limits the damage from a leaked one.
 
 ## Configuration
 
@@ -78,12 +107,22 @@ uvicorn main:app --reload
 Open Swagger UI:
 http://127.0.0.1:8000/docs
 
+## Tests
+
+```bash
+pytest -q
+```
+
+19 tests, at two levels: `tests/test_auth.py` and `tests/test_notes.py` go through the API with
+`TestClient`, while `tests/test_services.py` calls the service classes directly with no HTTP.
+`tests/conftest.py` overrides `get_session` onto a separate `test.db`, so the suite never touches
+the development database.
+
 ## Future Improvements
+- PostgreSQL + Docker
+- `created_at` on notes, then pagination on `GET /notes`
 - Search notes
-- Pagination
-- Docker support
-- PostgreSQL
-- Unit tests
+- Refresh-token rotation and logout (needs a denylist table)
 
 ## License
 MIT

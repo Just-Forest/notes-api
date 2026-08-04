@@ -9,7 +9,10 @@ Architecture cleanup for the Notes API, ordered so each step makes the next one 
 | 3 | Centralize configuration | ✅ Done |
 | 4 | Unique constraint on `users.name` | ✅ Done |
 | 5 | Split routers, add prefixes and tags | ✅ Done |
-| 6 | Extract a service layer | ☐ Next |
+| 6 | Extract a service layer | ✅ Done |
+
+The numbered roadmap is complete. Remaining work is tracked under
+[Smaller items](#smaller-items-no-particular-order) and [What's next](#whats-next).
 
 ---
 
@@ -195,11 +198,25 @@ service     → business rules, knows nothing about HTTP
 repository  → queries, knows nothing about business rules  (defer — likely premature here)
 ```
 
-Start with services only. Add repositories when queries get complex enough to be worth naming.
+Services only. No repository layer — with four queries it would be ceremony.
 
 **Concept:** recognizing when a pattern is *not* yet worth it matters as much as knowing it.
 
-Do this one last — by then you'll have felt why you want it.
+**Done:**
+- `services/exceptions.py` holds `ServiceError` and its three subclasses. `main.py` maps them
+  to 404 / 409 / 401, so status codes are chosen in exactly one place.
+- `services/notes.py` and `services/auth.py` never import `HTTPException`. That's the test:
+  if a service can't be called outside a request, the extraction isn't finished.
+- `get_note_service` / `get_auth_service` inject a `Session`, so services reach the database
+  only through the `get_session` seam. No new path to `session_factory`.
+- `endpoints/` no longer imports `select`, `update`, `delete`, `Session` or `IntegrityError`.
+  That import list going empty is the signal the move is complete.
+
+**Verified:** the 7 pre-existing tests passed *unchanged*, and OpenAPI paths matched.
+
+**The payoff:** `tests/test_services.py` — `pytest.raises(AlreadyExists)` around a duplicate
+signup, with no `TestClient`, no app and no request. A business rule became testable in four
+lines because it stopped being tangled with HTTP.
 
 ---
 
@@ -228,20 +245,74 @@ hasher, and the bare package doesn't ship the backend.
 
 ---
 
+---
+
+## Post-roadmap changes
+
+### Fixed the `UpdatedNotes` response shape ✅
+
+`PUT /notes/{id}` now returns the note; `DELETE` returns `204` with an empty body. `updated_rows`
+was a SQLAlchemy `rowcount` — a driver artifact — leaking into the public contract, next to a
+`success: true` that the `200` already implied.
+
+`NoteService.update` uses `UPDATE ... RETURNING` to get the row back in one statement. The
+obvious alternative, `UPDATE` then `SELECT`, is two round trips with a race between them.
+SQLite has supported `RETURNING` since 3.35.
+
+⚠️ Breaking change, kept in its own commit — see invariant 7.
+
+### Added `POST /refresh` ✅
+
+`login` had always returned a `refreshToken` that no endpoint accepted, so half the pair was
+dead weight. With AuthX's default 15-minute access token, a client had no way back after expiry
+except resending the password.
+
+**Concept — why two tokens.** A JWT is stateless, so it cannot be un-issued; expiry is the only
+control you have. One token forces a bad trade: long-lived is convenient but a leak lasts weeks,
+short-lived is safe but unusable. Splitting by *how often each is transmitted* resolves it — the
+access token goes everywhere so it expires in 15 minutes; the refresh token goes to one endpoint
+so it can last 20 days.
+
+- `AuthService.refresh` re-reads the user before minting. The refresh token outlives the row it
+  names, and a signature can't know the account was deleted. That lookup is the business rule,
+  and why this is a service method rather than a bare `create_access_token` in the endpoint.
+- Both tokens arrive in the same `Authorization` header, so the `type` claim is the only thing
+  separating them. `verify_type=True` is what stops a refresh token being used as a 20-day
+  access token — `tests/test_auth.py` asserts both rejection directions, because those tests are
+  the only record that the separation holds.
+- No rotation and no logout. Revoking a JWT needs a denylist table, which is real storage. The
+  short access-token lifetime *is* the revocation mechanism here.
+
+---
+
+## What's next
+
+1. **Postgres in Docker.** The largest gap between this and a real backend. It will surface the
+   SQLite assumptions that are currently invisible, and `batch_alter_table` stops being
+   theoretical. `Settings` and the `%%` escaping in `alembic/env.py` are already braced for it.
+2. **`created_at` + pagination**, in that order and *after* Postgres — so the first hand-written
+   migration runs against a database you can't just delete. Pagination needs the timestamp
+   anyway: without a stable `ORDER BY`, page boundaries are undefined and rows can repeat or
+   vanish between pages.
+3. **Add `mypy` to the verification triad.** It's declared but has never been run.
+
+Deferred: async SQLAlchemy. It touches every layer at once, and the reason plain `def` is correct
+here is already understood — the time would go on mechanics, not the concept.
+
+---
+
 ## Smaller items (no particular order)
 
-- `UpdatedNotes` returns `updated_rows`, a SQLAlchemy `rowcount` — a DB artifact leaking into
-  the public API contract. Prefer `204 No Content` for `DELETE`, the updated resource for `PUT`.
-  `success: true` beside a 200 is redundant; the status code already says that.
-- `README.md:57` documents an `owner_id` field that `NoteItem` doesn't return.
+- `signup` has no `response_model`, so OpenAPI documents its response as `{}`. It returns a bare
+  `{"success": true}` — the last of those left — and should be `201`, not `200`.
+- `mypy` and `ruff` sit in main `dependencies`; they belong in the `dev` group. `uv sync --no-dev`
+  currently ships a type checker to production.
 - `Base` lives in `session.py`, but a declarative base isn't session machinery. Consider
   `src/database/base.py`.
-- `LoginResponse` (`schemas/users.py:21-23`) redefines `model_config` and aliases.
-  Pydantic v2 merges config across inheritance, and `BaseSchema`'s `alias_generator=to_camel`
-  already produces `accessToken`/`refreshToken`. All three lines are redundant.
-- Unused imports: `ConfigDict` in `schemas/notes.py`, `Field`/`ConfigDict` in `schemas/users.py`.
-  `ruff check .` will find these — ruff is already a dependency.
-- `GET /protected` (`authors.py:133`) looks like leftover scaffolding.
+- `LoginResponse` (`schemas/users.py`) redefines `model_config` and aliases. Pydantic v2 merges
+  config across inheritance, and `BaseSchema`'s `alias_generator=to_camel` already produces
+  `accessToken`/`refreshToken`. All three lines are redundant — `RefreshResponse`, added just
+  below it, is the same thing written correctly.
 - No pagination on `GET /notes`. Fine now; first thing to break at scale.
 - `health` is `async def`, everything else is `def`. Both work — FastAPI runs sync endpoints in
   a threadpool. Plain `def` is *correct* here because SQLAlchemy is synchronous; a blocking call

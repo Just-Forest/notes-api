@@ -105,7 +105,13 @@ bug — it creates a cycle, and it means an object that should be local is missi
 - Ownership is enforced **in the `WHERE` clause** (`Note.user_id == user_id`), not
   fetch-then-compare. This is atomic and race-free — don't "simplify" it.
 - `login` returns identical errors for unknown user and wrong password. Deliberate: prevents
-  user enumeration.
+  user enumeration. The guarantee lives in `AuthService.login` — one `raise` covering both
+  branches — *not* in the exception handler, which passes `str(exc)` through.
+- Access and refresh tokens both arrive in the `Authorization` header, so the `type` claim is
+  the only thing separating them. Never set `verify_type=False`: it turns a 20-day refresh
+  token into a 20-day access token. `tests/test_auth.py` asserts both rejection directions.
+- `AuthService.refresh` re-reads the user before minting a token. A refresh token outlives the
+  row it names, and the signature can't know the account was deleted.
 - `signup` keeps both the Python duplicate check *and* the DB unique constraint. The check
   gives a clean error; the constraint closes the race. After `IntegrityError`,
   `session.rollback()` is mandatory or the rest of the request fails with
@@ -116,32 +122,34 @@ bug — it creates a cycle, and it means an object that should be local is missi
 
 ## Current status
 
-Tasks 1–5 complete (test isolation, Alembic ownership, config, unique constraint, router
-split). **Task 6 (service layer) is in progress:**
+**Tasks 1–6 are complete** — the numbered roadmap in TASKS.md is done. `NoteService` and
+`AuthService` hold the business rules, `main.py` maps domain errors to status codes, and
+`tests/test_services.py` exercises rules with no `TestClient`. 19 tests.
 
-- Done: `services/exceptions.py`, `services/notes.py` (`NoteService`), `get_note_service`
-  provider, exception handlers in `main.py`, and `add_note` / `get_all_notes` wired up.
-- **Remaining:** `update_note` and `delete_note` in `endpoints/notes.py` still contain inline
-  SQL and `HTTPException` — move them onto `NoteService.update` / `.delete` (which already
-  exist and raise `NotFound`). Then delete the now-unused `update`, `delete`, `Note`,
-  `Session`, `get_session`, `HTTPException` imports from that module.
-- **Then:** create `services/auth.py` with `AuthService` (`signup` → `AlreadyExists`,
-  `login` → `InvalidCredentials`, returns token pair) and slim down `endpoints/auth.py`.
-- **Payoff to demonstrate:** a service-level unit test that needs no `TestClient` —
-  `pytest.raises(AlreadyExists)` around a duplicate `signup`.
+Two changes landed after the roadmap:
 
-Do **not** add a repository layer — with four queries it's ceremony. Do **not** change response
-shapes (e.g. `UpdatedNotes.updated_rows`) during the extraction.
+- **Response shapes fixed.** `PUT /notes/{id}` returns the note; `DELETE` returns `204` with an
+  empty body. `UpdatedNotes` is gone. `NoteService.update` uses `UPDATE ... RETURNING` — don't
+  "simplify" it back into an `UPDATE` followed by a `SELECT`, that reintroduces a race.
+- **`POST /refresh` added.** Redeems a refresh token for a new access token.
+
+Next up is Postgres in Docker, then `created_at` + pagination (in that order — the migration is
+worth writing against Postgres). See TASKS.md "What's next".
+
+Do **not** add a repository layer — with four queries it's ceremony.
 
 ## Known issues (not yet addressed)
 
 - The real JWT secret is in git history at commit `eed96a2` (`.env.example`). Rotate it if this
   repo is or becomes public — a later commit removing it does not unpublish it.
-- `UpdatedNotes` exposes `updated_rows`, a SQLAlchemy `rowcount`, in the public API.
-  `DELETE` should be `204`; `PUT` should return the updated resource.
-- `README.md` documents an `owner_id` field that `NoteItem` doesn't return.
-- `mypy` and `ruff` are in main `dependencies`; they belong in the `dev` group.
+- `signup` has no `response_model` (OpenAPI shows `{}`), returns a bare `{"success": true}`,
+  and should be `201`.
+- No refresh-token rotation and no logout. Revoking a JWT needs a denylist table; the short
+  access-token lifetime is the revocation mechanism instead. Deliberate, not an oversight.
+- `mypy` and `ruff` are in main `dependencies`; they belong in the `dev` group. `mypy` is also
+  not part of the verification triad and has never been run.
 - `LoginResponse` redefines `model_config` and aliases that `BaseSchema` already provides.
+  `RefreshResponse`, right below it, is the same thing written correctly.
 - No pagination on `GET /notes`.
 - `health` is `async def` while DB endpoints are `def`. That's correct — SQLAlchemy here is
   synchronous, and blocking inside `async def` would freeze the event loop. Don't "fix" it.
